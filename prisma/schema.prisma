@@ -1,0 +1,480 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  admin
+  trader
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  username      String   @unique @db.VarChar(255)
+  email        String   @unique @db.VarChar(255)
+  role         Role     @default(trader) 
+  password String   @map("password_hash") @db.VarChar(255)
+  firstName    String   @map("first_name") @db.VarChar(100)
+  lastName     String   @map("last_name") @db.VarChar(100)
+  phone        String?  @db.VarChar(30)
+  countryCode  String?  @map("country_code") @db.Char(2)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  twoFa         UserTwoFa?
+  devices       UserDevice[]
+  sessions      Session[]
+  accounts      Account[]
+  withdrawals   Withdrawal[]
+  transactions  Transaction[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  subscriptions UserSubscription[]
+  referralsMade Referral[]         @relation("ReferrerUser")
+  referralsReceived Referral[]     @relation("ReferredUser")
+
+  @@map("users")
+}
+
+model UserTwoFa {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @unique @map("user_id") @db.Uuid
+  totpSecret String   @map("totp_secret") @db.VarChar(100)
+  isEnabled  Boolean  @default(false) @map("is_enabled")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_2fa")
+}
+
+model UserDevice {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  deviceFingerprint String   @map("device_fingerprint") @db.VarChar(255)
+  deviceLabel       String?  @map("device_label") @db.VarChar(100)
+  ipAddress         String?  @map("ip_address") @db.VarChar(45)
+  isTrusted         Boolean  @default(false) @map("is_trusted")
+  lastSeenAt        DateTime @default(now()) @map("last_seen_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auditLogs AuditLog[]
+
+  @@unique([userId, deviceFingerprint])
+  @@map("user_devices")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @map("token_hash") @db.VarChar(255)
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  userAgent String?  @map("user_agent")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([userId])
+  @@map("sessions")
+}
+
+model AccountLevel {
+  id               Int      @id @default(autoincrement())
+  levelNumber      Int      @unique @map("level_number")
+  levelName        String   @map("level_name") @db.VarChar(100)
+  withdrawalPct    Decimal  @map("withdrawal_pct") @db.Decimal(5, 2)
+  capitalTargetX   Decimal  @map("capital_target_x") @db.Decimal(5, 2)
+  maxDailyTrades   Int      @map("max_daily_trades")
+  dailyLossLimitPct Decimal @map("daily_loss_limit_pct") @db.Decimal(5, 2)
+  totalLossLimitPct Decimal @map("total_loss_limit_pct") @db.Decimal(5, 2)
+  xpRequired       Int      @default(0) @map("xp_required")
+  canBePurchased   Boolean  @default(false) @map("can_be_purchased")
+  purchasePriceUsd Decimal? @map("purchase_price_usd") @db.Decimal(10, 2)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  accounts       Account[]
+  fromUpgrades   LevelUpgrade[] @relation("FromLevel")
+  toUpgrades     LevelUpgrade[] @relation("ToLevel")
+
+  @@map("account_levels")
+}
+
+model Account {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  accountType    String    @map("account_type") @db.VarChar(20)
+  levelId        Int       @map("level_id")
+  status         String    @default("active") @db.VarChar(20)
+  capitalUsd     Decimal   @default(0) @map("capital_usd") @db.Decimal(14, 4)
+  balanceUsd     Decimal   @default(0) @map("balance_usd") @db.Decimal(14, 4)
+  equityUsd      Decimal   @default(0) @map("equity_usd") @db.Decimal(14, 4)
+  drawdownUsd    Decimal   @default(0) @map("drawdown_usd") @db.Decimal(14, 4)
+  totalPnlUsd    Decimal   @default(0) @map("total_pnl_usd") @db.Decimal(14, 4)
+  xpPoints       Int       @default(0) @map("xp_points")
+  evalStartDate  DateTime? @map("eval_start_date") @db.Date
+  evalEndDate    DateTime? @map("eval_end_date") @db.Date
+  fundedAt       DateTime? @map("funded_at")
+  closedAt       DateTime? @map("closed_at")
+  closeReason    String?   @map("close_reason") @db.VarChar(255)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user             User               @relation(fields: [userId], references: [id])
+  level            AccountLevel       @relation(fields: [levelId], references: [id])
+  trades           Trade[]
+  dailyStats       DailyTradingStats[]
+  riskViolations   RiskViolation[]
+  withdrawals      Withdrawal[]
+  userChallenges   UserChallenge[]
+  levelUpgrades    LevelUpgrade[]
+  transactions     Transaction[]
+  competitionEntries CompetitionEntry[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("accounts")
+}
+
+model Instrument {
+  id         Int     @id @default(autoincrement())
+  symbol     String  @unique @db.VarChar(20)
+  assetClass String  @map("asset_class") @db.VarChar(20)
+  isTradable Boolean @default(true) @map("is_tradable")
+  pipValue   Decimal @map("pip_value") @db.Decimal(10, 6)
+  minLot     Decimal @map("min_lot") @db.Decimal(10, 4)
+  maxLot     Decimal @map("max_lot") @db.Decimal(10, 4)
+
+  trades     Trade[]
+  blackouts  MarketBlackout[]
+
+  @@map("instruments")
+}
+
+model Trade {
+  id            String    @id @default(uuid()) @db.Uuid
+  accountId     String    @map("account_id") @db.Uuid
+  instrumentId  Int       @map("instrument_id")
+  ticket        BigInt?
+  direction     String    @db.Char(4)
+  lotSize       Decimal   @map("lot_size") @db.Decimal(10, 4)
+  openPrice     Decimal   @map("open_price") @db.Decimal(14, 6)
+  closePrice    Decimal?  @map("close_price") @db.Decimal(14, 6)
+  slPrice       Decimal?  @map("sl_price") @db.Decimal(14, 6)
+  tpPrice       Decimal?  @map("tp_price") @db.Decimal(14, 6)
+  openAt        DateTime  @map("open_at")
+  closeAt       DateTime? @map("close_at")
+  pnlUsd        Decimal?  @map("pnl_usd") @db.Decimal(14, 4)
+  commissionUsd Decimal   @default(0) @map("commission_usd") @db.Decimal(10, 4)
+  swapUsd       Decimal   @default(0) @map("swap_usd") @db.Decimal(10, 4)
+  status        String    @default("open") @db.VarChar(20)
+  strategyFlag  String?   @map("strategy_flag") @db.VarChar(50)
+  isFlagged     Boolean   @default(false) @map("is_flagged")
+  flagReason    String?   @map("flag_reason") @db.VarChar(255)
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  account        Account         @relation(fields: [accountId], references: [id])
+  instrument     Instrument      @relation(fields: [instrumentId], references: [id])
+  riskViolations RiskViolation[]
+
+  @@index([accountId])
+  @@index([status])
+  @@index([openAt])
+  @@map("trades")
+}
+
+model DailyTradingStats {
+  id            String   @id @default(uuid()) @db.Uuid
+  accountId     String   @map("account_id") @db.Uuid
+  statDate      DateTime @map("stat_date") @db.Date
+  tradeCount    Int      @default(0) @map("trade_count")
+  grossPnlUsd   Decimal  @default(0) @map("gross_pnl_usd") @db.Decimal(14, 4)
+  netPnlUsd     Decimal  @default(0) @map("net_pnl_usd") @db.Decimal(14, 4)
+  maxDrawdownUsd Decimal @default(0) @map("max_drawdown_usd") @db.Decimal(14, 4)
+  dailyLossUsd  Decimal  @default(0) @map("daily_loss_usd") @db.Decimal(14, 4)
+  dailyLossPct  Decimal  @default(0) @map("daily_loss_pct") @db.Decimal(5, 2)
+  limitBreached Boolean  @default(false) @map("limit_breached")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@unique([accountId, statDate])
+  @@index([accountId])
+  @@map("daily_trading_stats")
+}
+
+model RiskViolation {
+  id           String    @id @default(uuid()) @db.Uuid
+  accountId    String    @map("account_id") @db.Uuid
+  tradeId      String?   @map("trade_id") @db.Uuid
+  violationType String   @map("violation_type") @db.VarChar(50)
+  severity     String    @db.VarChar(20)
+  description  String
+  autoClosed   Boolean   @default(false) @map("auto_closed")
+  breachCount  Int       @default(1) @map("breach_count")
+  reviewedBy   String?   @map("reviewed_by") @db.Uuid
+  reviewedAt   DateTime? @map("reviewed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id])
+  trade   Trade?  @relation(fields: [tradeId], references: [id])
+
+  @@index([accountId])
+  @@map("risk_violations")
+}
+
+model MarketBlackout {
+  id           String   @id @default(uuid()) @db.Uuid
+  blackoutType String   @map("blackout_type") @db.VarChar(30)
+  instrumentId Int?     @map("instrument_id")
+  startAt      DateTime @map("start_at")
+  endAt        DateTime @map("end_at")
+  title        String   @db.VarChar(255)
+  impactLevel  String   @map("impact_level") @db.VarChar(10)
+  sourceUrl    String?  @map("source_url") @db.VarChar(500)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  instrument Instrument? @relation(fields: [instrumentId], references: [id])
+
+  @@index([startAt, endAt])
+  @@map("market_blackouts")
+}
+
+model Withdrawal {
+  id              String    @id @default(uuid()) @db.Uuid
+  accountId       String    @map("account_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  amountUsd       Decimal   @map("amount_usd") @db.Decimal(14, 4)
+  feeUsd          Decimal   @default(0) @map("fee_usd") @db.Decimal(10, 4)
+  netAmountUsd    Decimal   @map("net_amount_usd") @db.Decimal(14, 4)
+  withdrawalPct   Decimal   @map("withdrawal_pct") @db.Decimal(5, 2)
+  method          String    @db.VarChar(30)
+  destinationInfo Json      @map("destination_info")
+  status          String    @default("pending") @db.VarChar(20)
+  requestedAt     DateTime  @default(now()) @map("requested_at")
+  approvedBy      String?   @map("approved_by") @db.Uuid
+  processedAt     DateTime? @map("processed_at")
+  rejectionReason String?   @map("rejection_reason") @db.VarChar(255)
+  tradingDaysMet  Boolean   @default(false) @map("trading_days_met")
+  consistencyMet  Boolean   @default(false) @map("consistency_met")
+  noViolations    Boolean   @default(false) @map("no_violations")
+
+  account Account @relation(fields: [accountId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([accountId])
+  @@index([status])
+  @@map("withdrawals")
+}
+
+model Challenge {
+  id                 String   @id @default(uuid()) @db.Uuid
+  title              String   @db.VarChar(200)
+  description        String
+  challengeType      String   @map("challenge_type") @db.VarChar(50)
+  targetValue        Decimal  @map("target_value") @db.Decimal(10, 4)
+  durationDays       Int      @map("duration_days")
+  xpReward           Int      @map("xp_reward")
+  levelBoost         Int      @default(0) @map("level_boost")
+  withdrawalBoostPct Decimal  @default(0) @map("withdrawal_boost_pct") @db.Decimal(5, 2)
+  isActive           Boolean  @default(true) @map("is_active")
+  minLevelRequired   Int      @default(1) @map("min_level_required")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  userChallenges UserChallenge[]
+
+  @@map("challenges")
+}
+
+model UserChallenge {
+  id            String    @id @default(uuid()) @db.Uuid
+  accountId     String    @map("account_id") @db.Uuid
+  challengeId   String    @map("challenge_id") @db.Uuid
+  status        String    @default("active") @db.VarChar(20)
+  progressValue Decimal   @default(0) @map("progress_value") @db.Decimal(10, 4)
+  startedAt     DateTime  @default(now()) @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  expiresAt     DateTime  @map("expires_at")
+  xpEarned      Int       @default(0) @map("xp_earned")
+  rewardGranted Boolean   @default(false) @map("reward_granted")
+
+  account   Account   @relation(fields: [accountId], references: [id])
+  challenge Challenge @relation(fields: [challengeId], references: [id])
+
+  @@index([accountId])
+  @@map("user_challenges")
+}
+
+model LevelUpgrade {
+  id            String   @id @default(uuid()) @db.Uuid
+  accountId     String   @map("account_id") @db.Uuid
+  fromLevelId   Int      @map("from_level_id")
+  toLevelId     Int      @map("to_level_id")
+  upgradeMethod String   @map("upgrade_method") @db.VarChar(30)
+  pricePaidUsd  Decimal  @default(0) @map("price_paid_usd") @db.Decimal(10, 4)
+  transactionId String?  @map("transaction_id") @db.Uuid
+  upgradedAt    DateTime @default(now()) @map("upgraded_at")
+
+  account   Account      @relation(fields: [accountId], references: [id])
+  fromLevel AccountLevel @relation("FromLevel", fields: [fromLevelId], references: [id])
+  toLevel   AccountLevel @relation("ToLevel", fields: [toLevelId], references: [id])
+
+  @@map("level_upgrades")
+}
+
+model Referral {
+  id              String    @id @default(uuid()) @db.Uuid
+  referrerUserId  String    @map("referrer_user_id") @db.Uuid
+  referredUserId  String    @map("referred_user_id") @db.Uuid
+  referralCode    String    @map("referral_code") @db.VarChar(50)
+  status          String    @default("pending") @db.VarChar(20)
+  rewardType      String?   @map("reward_type") @db.VarChar(30)
+  rewardValue     Decimal?  @map("reward_value") @db.Decimal(10, 4)
+  rewardGrantedAt DateTime? @map("reward_granted_at")
+  flaggedReason   String?   @map("flagged_reason") @db.VarChar(255)
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  referrer User @relation("ReferrerUser", fields: [referrerUserId], references: [id])
+  referred User @relation("ReferredUser", fields: [referredUserId], references: [id])
+
+  @@index([referralCode])
+  @@map("referrals")
+}
+
+model Transaction {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  accountId     String?  @map("account_id") @db.Uuid
+  type          String   @db.VarChar(30)
+  amountUsd     Decimal  @map("amount_usd") @db.Decimal(14, 4)
+  direction     String   @db.Char(6)
+  status        String   @default("pending") @db.VarChar(20)
+  paymentMethod String?  @map("payment_method") @db.VarChar(30)
+  externalRef   String?  @map("external_ref") @db.VarChar(255)
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user    User     @relation(fields: [userId], references: [id])
+  account Account? @relation(fields: [accountId], references: [id])
+
+  @@index([userId])
+  @@map("transactions")
+}
+
+model Competition {
+  id              String   @id @default(uuid()) @db.Uuid
+  title           String   @db.VarChar(200)
+  competitionType String   @map("competition_type") @db.VarChar(20)
+  prizePoolUsd    Decimal  @map("prize_pool_usd") @db.Decimal(14, 4)
+  entryFeeUsd     Decimal  @default(0) @map("entry_fee_usd") @db.Decimal(10, 4)
+  startAt         DateTime @map("start_at")
+  endAt           DateTime @map("end_at")
+  status          String   @default("upcoming") @db.VarChar(20)
+  metric          String   @db.VarChar(50)
+  maxEntries      Int?     @map("max_entries")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  entries CompetitionEntry[]
+
+  @@map("competitions")
+}
+
+model CompetitionEntry {
+  id            String   @id @default(uuid()) @db.Uuid
+  competitionId String   @map("competition_id") @db.Uuid
+  accountId     String   @map("account_id") @db.Uuid
+  transactionId String?  @map("transaction_id") @db.Uuid
+  rank          Int?
+  scoreValue    Decimal  @default(0) @map("score_value") @db.Decimal(14, 4)
+  prizeUsd      Decimal  @default(0) @map("prize_usd") @db.Decimal(14, 4)
+  enteredAt     DateTime @default(now()) @map("entered_at")
+
+  competition Competition @relation(fields: [competitionId], references: [id])
+  account     Account     @relation(fields: [accountId], references: [id])
+
+  @@unique([competitionId, accountId])
+  @@map("competition_entries")
+}
+
+model Product {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(100)
+  productType  String   @map("product_type") @db.VarChar(30)
+  description  String?
+  priceUsd     Decimal  @map("price_usd") @db.Decimal(10, 4)
+  billingCycle String   @map("billing_cycle") @db.VarChar(20)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  subscriptions UserSubscription[]
+
+  @@map("products")
+}
+
+model UserSubscription {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  productId     String   @map("product_id") @db.Uuid
+  transactionId String?  @map("transaction_id") @db.Uuid
+  status        String   @default("active") @db.VarChar(20)
+  startsAt      DateTime @map("starts_at")
+  expiresAt     DateTime @map("expires_at")
+  autoRenew     Boolean  @default(true) @map("auto_renew")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@map("user_subscriptions")
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   @db.VarChar(50)
+  title     String   @db.VarChar(255)
+  body      String
+  isRead    Boolean  @default(false) @map("is_read")
+  meta      Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  entityType  String   @map("entity_type") @db.VarChar(50)
+  entityId    String?  @map("entity_id") @db.Uuid
+  action      String   @db.VarChar(100)
+  oldValue    Json?    @map("old_value")
+  newValue    Json?    @map("new_value")
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  deviceId    String?  @map("device_id") @db.Uuid
+  performedAt DateTime @default(now()) @map("performed_at")
+
+  user   User?       @relation(fields: [userId], references: [id])
+  device UserDevice? @relation(fields: [deviceId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

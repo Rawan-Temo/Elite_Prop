@@ -4,6 +4,10 @@ import morgan from "morgan";
 import routes from "./routes/index";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import {
+  errorHandler,
+  notFoundHandler,
+} from "./common/middlewares/errorHandler";
 // ============ Modules =============
 const app = express();
 dotenv.config();
@@ -14,7 +18,8 @@ app.use(cors());
 app.set("query parser", "extended");
 
 app.use("/api/v1/", routes);
-
+app.use(notFoundHandler);
+app.use(errorHandler);
 app.listen(process.env.PORT || 8000, () => {
   console.log(`Server is running on port ${process.env.PORT || 8000}`);
 });

@@ -1,4 +1,4 @@
-import { type Request, type Response } from "express";
+import { NextFunction, type Request, type Response } from "express";
 import { UserService } from "./user.service";
 import { GetAllResponse } from "../../../common/types/apiResponse";
 import jwt from "jsonwebtoken";
@@ -6,18 +6,16 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import {
   CreateUserDTO,
-  UpdateUserDTO,
   UserLoginDTO,
   UserQueryDto,
   UserResponse,
 } from "../types/user.types";
 import { handleError, hashingPassword } from "../../../common/utils/helpers";
-import mapToDTO from "../../../common/utils/dtoMapper";
-import { map } from "zod";
 
 const getAllUsers = async <T extends UserQueryDto>(
   req: Request<any, any, any, T>,
   res: Response,
+  next: NextFunction,
 ) => {
   try {
     const { rows, count } = await UserService.getAllUsers(req.query);
@@ -31,8 +29,7 @@ const getAllUsers = async <T extends UserQueryDto>(
 
     res.json(response);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Internal server error" });
+    next(err);
   }
 };
 
@@ -68,8 +65,7 @@ const getOnUser = async (req: Request, res: Response) => {
 const updateUser = async (req: Request, res: Response) => {
   try {
     const id = req.params.id;
-    const data = mapToDTO<UpdateUserDTO>(req.body, UpdateUserDTO);
-
+    const data = req.body;
     if (req.body.password) {
       req.body.password = await hashingPassword(req.body.password);
     }

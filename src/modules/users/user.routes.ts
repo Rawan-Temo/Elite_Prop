@@ -11,16 +11,8 @@ import { validate, validateQuery } from "../../common/middlewares/validate";
 import { createUserSchema, updateUserSchema } from "./types/user.validation";
 import { UserQueryDto } from "./types/user.types";
 import { authenticateToken } from "../../common/middlewares/authMiddleware";
-const userFields = [
-  "username",
-  "id",
-  "email",
-  "fullName",
-  "role",
-  "active",
-  "createdAt",
-  "updatedAt",
-];
+import { userFields } from "./types/constants";
+
 const router = express.Router();
 // Define user-related routes here
 router

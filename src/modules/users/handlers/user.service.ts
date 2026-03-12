@@ -1,6 +1,10 @@
 import { Request } from "express";
 import { userRepository } from "./user.repository";
-import { CreateUserDTO, UpdateUserDTO, UserQueryDto } from "../types/user.types";
+import {
+  CreateUserDTO,
+  UpdateUserDTO,
+  UserQueryDto,
+} from "../types/user.types";
 
 export const UserService = {
   getAllUsers: (query: UserQueryDto) => {
@@ -14,6 +18,7 @@ export const UserService = {
   },
 
   updateUser: (data: UpdateUserDTO, id: any) => {
+    console.log("Updating user with data:", data);
     return userRepository.update(data, id);
   },
   deleteManyUsers: (ids: any[]) => {
@@ -22,7 +27,7 @@ export const UserService = {
   findByUsername: (username: string) => {
     return userRepository.findByUsername(username);
   },
-  saveRefreshToken: (userId: any, refreshToken: any) => {
-    return userRepository.update({ refreshToken }, userId);
-  }
+  // saveRefreshToken: (userId: any, refreshToken: any) => {
+  //   return userRepository.update({ refreshToken }, userId);
+  // },
 };

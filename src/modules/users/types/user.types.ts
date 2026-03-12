@@ -3,47 +3,82 @@ import {
   UserUpdateInput,
 } from "@/generated/prisma/internal/prismaNamespaceBrowser";
 import { QueryParams } from "../../../common/types/apiResponse";
-// TODO seprate each DTOs into own files and class
+import { $Enums } from "@/generated/prisma/client";
 
-export interface CreateUserDTO extends UserCreateInput {
-  username: string;
-  password: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  countryCode?: string;
-  phone?: string;
+// TODO separate each DTO into its own file and class
 
-  is_active?: boolean;
+export class CreateUserDTO {
+  username: string = "";
+  email: string = "";
+  role?: $Enums.Role;
+  password: string = "";
+  firstName?: string = "";
+  lastName?: string = "";
+  phone?: string | null;
+  countryCode?: string | null;
 }
 
-export interface UserResponse {
-  id: number;
-  username: string;
-  email: string;
-  role: string;
+export class UserResponse {
+  id!: number; // Using definite assignment assertion (will be set in constructor or by ORM)
+  username!: string;
+  email!: string;
+  role!: string;
   firstName?: string;
   lastName?: string;
   countryCode?: string;
   phone?: string;
-  is_active: boolean;
+  is_active!: boolean;
+  createdAt!: Date;
+  updatedAt!: Date;
 
-  createdAt: Date;
-  updatedAt: Date;
+  // Optional constructor if you want to populate from a plain object
+  constructor(data?: Partial<UserResponse>) {
+    if (data) {
+      Object.assign(this, data);
+    }
+  }
 }
 
-export interface UserQueryDto extends QueryParams {
-  id: string;
-  username: string;
-  createdAt: Date | string;
-  updatedAt: Date | string;
+export class UserQueryDto implements QueryParams {
+  id?: string;
+  username?: string;
+  email?: string;
+  role?: string;
+  firstName?: string;
+  lastName?: string;
+  countryCode?: string;
+  phone?: string;
+  is_active?: boolean;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+
+  // If QueryParams has properties, include them here:
+  // page?: number;
+  // limit?: number;
+  // sort?: string;
+  // ...
 }
-export interface UpdateUserDTO extends UserUpdateInput {
-  active?: boolean;
+
+export class UpdateUserDTO {
+  username?: string;
+  email?: string;
+  role?: $Enums.Role;
   password?: string;
-  refreshToken?: string | null;
+  firstName?: string;
+  lastName?: string;
+  phone?: string | null;
+  countryCode?: string | null;
+  isActive?: boolean;
+  twoFa?: any;
 }
-export interface UserLoginDTO {
-  username: string;
-  password: string;
+
+export class UserLoginDTO {
+  username!: string;
+  password!: string;
+
+  constructor(data?: Partial<UserLoginDTO>) {
+    if (data) {
+      Object.assign(this, data);
+    }
+  }
 }

@@ -6,11 +6,14 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import {
   CreateUserDTO,
+  UpdateUserDTO,
   UserLoginDTO,
   UserQueryDto,
   UserResponse,
 } from "../types/user.types";
 import { handleError, hashingPassword } from "../../../common/utils/helpers";
+import mapToDTO from "../../../common/utils/dtoMapper";
+import { map } from "zod";
 
 const getAllUsers = async <T extends UserQueryDto>(
   req: Request<any, any, any, T>,
@@ -19,7 +22,6 @@ const getAllUsers = async <T extends UserQueryDto>(
   try {
     const { rows, count } = await UserService.getAllUsers(req.query);
 
-    console.log(req.user);
     const response: GetAllResponse<UserResponse> = {
       status: "success",
       data: rows,
@@ -66,7 +68,8 @@ const getOnUser = async (req: Request, res: Response) => {
 const updateUser = async (req: Request, res: Response) => {
   try {
     const id = req.params.id;
-    const data = req.body;
+    const data = mapToDTO<UpdateUserDTO>(req.body, UpdateUserDTO);
+
     if (req.body.password) {
       req.body.password = await hashingPassword(req.body.password);
     }
@@ -183,21 +186,21 @@ const login = async (
 //     res.status(500).json({ message: "Internal server error" });
 //   }
 // };
-const logout = async (req: Request, res: Response) => {
-  try {
-    const token = req.cookies.refreshToken;
-    const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET!) as {
-      id: string;
-    };
-    if (token) {
-      await UserService.saveRefreshToken(payload.id, null);
-    }
-    res.clearCookie("refreshToken");
-    res.status(200).json({ message: "Logged out successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+// const logout = async (req: Request, res: Response) => {
+//   try {
+//     const token = req.cookies.refreshToken;
+//     const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET!) as {
+//       id: string;
+//     };
+//     if (token) {
+//       await UserService.saveRefreshToken(payload.id, null);
+//     }
+//     res.clearCookie("refreshToken");
+//     res.status(200).json({ message: "Logged out successfully" });
+//   } catch (error) {
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
 export {
   login,
   getAllUsers,
@@ -205,5 +208,4 @@ export {
   getOnUser,
   updateUser,
   deleteManyUsers,
-  logout,
 };

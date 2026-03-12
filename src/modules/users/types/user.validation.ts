@@ -25,6 +25,7 @@ export const updateUserSchema = z
     role: z.nativeEnum($Enums.Role).optional(),
     phone: z.string().max(30).nullable().optional(),
     countryCode: z.string().length(2).nullable().optional(),
+    refreshToken: z.string().max(255).optional(),
     isActive: z.boolean().optional(),
   })
   .strict();

@@ -1,7 +1,6 @@
-import { authenticateToken } from "@/common/middlewares/authMiddleware";
-import { validate, validateQuery } from "@/common/middlewares/validate";
+import { authenticateToken } from "../../common/middlewares/authMiddleware";
+import { validate, validateQuery } from "../../common/middlewares/validate";
 import express from "express";
-import { getOnUser } from "../users/handlers/user.controller";
 import {
   createAccountSchema,
   updateAccountSchema,
@@ -13,6 +12,7 @@ import {
   getOneAccount,
   updateAccount,
 } from "./handlers/account.controller";
+import { accountFields } from "./types/constants";
 import { AccountQueryDto } from "./types/account.types";
 const router = express.Router();
 // Define user-related routes here

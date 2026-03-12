@@ -1,4 +1,4 @@
-const accountFields = [
+export const accountFields = [
   "id",
   "user_id",
   "account_type",

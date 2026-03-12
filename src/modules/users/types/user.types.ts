@@ -55,6 +55,7 @@ export type UpdateUserDTO = {
   phone?: string | null;
   countryCode?: string | null;
   isActive?: boolean;
+  refreshToken?: string;
 };
 export interface UserLoginDTO {
   username: string;
